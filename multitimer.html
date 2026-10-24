@@ -44,6 +44,9 @@ nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);b
 nav button{flex:1;border:none;border-radius:0;min-height:56px;color:var(--sub)}
 nav button.on{color:var(--acc);font-weight:700}
 .hide{display:none}
+.sorthd{display:flex;align-items:center;justify-content:space-between;margin:20px 0 8px}.sorthd h2{margin:0}
+.sortbtn{min-height:36px;padding:6px 12px;font-size:14px;border-radius:18px}
+.sortbtn.on{background:var(--acc);color:var(--accInk);border-color:var(--acc);font-weight:600}
 </style>
 </head>
 <body>
@@ -52,7 +55,7 @@ nav button.on{color:var(--acc);font-weight:700}
 <section id="tabT">
   <h2>プリセットから開始</h2>
   <div id="chips" class="chips"></div>
-  <h2>動いているタイマー</h2>
+  <div class="sorthd"><h2>動いているタイマー</h2><button id="sortBtn" class="sortbtn" aria-pressed="false">残り時間順</button></div>
   <div id="list"></div>
   <div class="card">
     <input id="nName" placeholder="名前(例:パスタ)" maxlength="30">
@@ -92,6 +95,8 @@ var KP='mt_presets_v1',KT='mt_timers_v1';
 var presets=load(KP,[{id:'p1',name:'カップ麺',sec:180},{id:'p2',name:'ゆで卵',sec:420},{id:'p3',name:'紅茶',sec:240}]);
 var timers=load(KT,[]);
 var actx=null;
+var sortOn=load('mt_sort_v1',false);
+function ordered(){return sortOn?timers.slice().sort(function(a,b){return remaining(a)-remaining(b)}):timers}
 function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function save(){try{localStorage.setItem(KP,JSON.stringify(presets));localStorage.setItem(KT,JSON.stringify(timers))}catch(e){}}
 function uid(){return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -128,7 +133,7 @@ function renderPresets(){
 }
 function renderTimers(){
  var el=document.activeElement;if(el&&el.classList&&el.classList.contains('name'))return;
- $('list').innerHTML=timers.length?timers.map(function(t){
+ var L=ordered();$('list').innerHTML=L.length?L.map(function(t){
   return '<div class="card'+(t.done?' done':'')+'" data-id="'+t.id+'">'+
   '<input class="name" data-name="'+t.id+'" value="'+esc(t.name)+'" placeholder="名前なし" maxlength="30" aria-label="タイマー名">'+
   '<div class="time" data-time="'+t.id+'">'+fmt(remaining(t))+'</div>'+
@@ -149,6 +154,7 @@ function tick(){
   var be=document.querySelector('[data-bar="'+t.id+'"]');if(be)be.style.width=(Math.max(0,remaining(t))/t.total*100)+'%';
  });
  if(changed){save();renderTimers()}
+ else if(sortOn){var want=ordered().map(function(t){return t.id}).join(),have=Array.prototype.map.call(document.querySelectorAll('#list .card[data-id]'),function(n){return n.dataset.id}).join();if(want!==have)renderTimers()}
 }
 setInterval(tick,250);
 document.addEventListener('visibilitychange',tick);
@@ -174,12 +180,14 @@ $('pSave').onclick=function(){var s=readHMS('pH','pM','pS'),n=$('pName').value.t
  presets.push({id:uid(),name:n,sec:s});save();renderPresets();renderChips();
  $('pName').value='';$('pH').value='';$('pM').value='';$('pS').value=''};
 
+function updateSort(){var b=$('sortBtn');b.classList.toggle('on',sortOn);b.setAttribute('aria-pressed',sortOn?'true':'false');b.textContent=sortOn?'残り時間順:オン':'残り時間順'}
+$('sortBtn').onclick=function(){sortOn=!sortOn;try{localStorage.setItem('mt_sort_v1',JSON.stringify(sortOn))}catch(e){}updateSort();renderTimers()};
 function showTab(k){$('tabT').classList.toggle('hide',k!=='T');$('tabP').classList.toggle('hide',k!=='P');
  $('bT').classList.toggle('on',k==='T');$('bP').classList.toggle('on',k==='P');window.scrollTo(0,0)}
 $('bT').onclick=function(){showTab('T')};$('bP').onclick=function(){showTab('P')};
 
 timers.forEach(function(t){if(t.running&&t.endAt<=Date.now()){t.done=true;t.running=false;t.left=0}});
-renderChips();renderPresets();renderTimers();
+renderChips();renderPresets();updateSort();renderTimers();
 })();
 </script>
 </body>
